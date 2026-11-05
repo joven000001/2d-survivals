@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
+@layer base {
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #050814;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  }
+
+  canvas {
+    touch-action: none;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Track the visible mobile viewport as browser chrome expands and collapses. */
+.game-viewport {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.font-pixel {
+  font-family: 'Press Start 2P', monospace;
+}
+
+.font-vt {
+  font-family: 'VT323', monospace;
+}
+
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-height: 2rem;
+  padding: .4rem .7rem;
+  border-radius: .75rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  background: rgb(2 12 15 / 30%);
+  font-size: 11px;
+  white-space: nowrap;
+  box-shadow: inset 0 1px rgb(255 255 255 / 7%);
+}
+
+@media (max-width: 640px) {
+  .hud-chip { min-height: 1.8rem; padding: .3rem .5rem; font-size: 9px; }
+}
+
+@keyframes chapter-intro-banner {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) translateY(10px);
+  }
+  9% {
+    opacity: 1;
+    transform: scale(1.02) translateY(0);
+  }
+  14% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  84% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.04) translateY(-6px);
+  }
+}
+
+.animate-chapter-intro {
+  animation: chapter-intro-banner 5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pixel-chapter-shadow {
+  text-shadow:
+    4px 4px 0 #000000,
+    -2px -2px 0 #000000,
+    2px -2px 0 #000000,
+    -2px 2px 0 #000000,
+    0 0 24px rgba(255, 255, 255, 0.45);
+}
+
+.pixel-survive-shadow {
+  text-shadow:
+    6px 6px 0 #000000,
+    -3px -3px 0 #000000,
+    3px -3px 0 #000000,
+    -3px 3px 0 #000000,
+    0 9px 0 rgba(0, 0, 0, 0.88),
+    0 0 44px rgba(255, 255, 255, 0.65);
+}

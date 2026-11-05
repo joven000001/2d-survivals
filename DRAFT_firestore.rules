@@ -1,0 +1,174 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidWorldSave(data, userId, worldId) {
+      return data.keys().hasAll([
+        'ownerId',
+        'worldId',
+        'worldName',
+        'seed',
+        'playerX',
+        'playerY',
+        'health',
+        'food',
+        'stamina',
+        'day',
+        'time',
+        'inventoryCounts',
+        'slotOrder',
+        'activeSlot',
+        'modifiedBlocksMap',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId',
+        'worldId',
+        'worldName',
+        'seed',
+        'playerX',
+        'playerY',
+        'health',
+        'food',
+        'stamina',
+        'day',
+        'time',
+        'inventoryCounts',
+        'slotOrder',
+        'activeSlot',
+        'modifiedBlocksMap',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.ownerId is string &&
+      data.ownerId.size() >= 1 &&
+      data.ownerId.size() <= 128 &&
+      data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ownerId == request.auth.uid &&
+      data.ownerId == userId &&
+      data.worldId is string &&
+      data.worldId.size() >= 1 &&
+      data.worldId.size() <= 128 &&
+      data.worldId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.worldId == worldId &&
+      data.worldName is string &&
+      data.worldName.size() >= 1 &&
+      data.worldName.size() <= 64 &&
+      data.seed is number &&
+      data.playerX is number &&
+      data.playerY is number &&
+      data.health is number &&
+      data.health >= 0 &&
+      data.health <= 100 &&
+      data.food is number &&
+      data.food >= 0 &&
+      data.food <= 100 &&
+      data.stamina is number &&
+      data.stamina >= 0 &&
+      data.stamina <= 100 &&
+      data.day is number &&
+      data.day >= 1 &&
+      data.time is number &&
+      data.time >= 0 &&
+      data.time <= 1 &&
+      data.inventoryCounts is map &&
+      data.inventoryCounts.size() <= 128 &&
+      data.slotOrder is list &&
+      data.slotOrder.size() <= 36 &&
+      (data.slotOrder.size() == 0 || (data.slotOrder[0] is string && data.slotOrder[0].size() <= 64)) &&
+      data.activeSlot is number &&
+      data.activeSlot >= 0 &&
+      data.activeSlot <= 8 &&
+      data.modifiedBlocksMap is map &&
+      data.modifiedBlocksMap.size() <= 5000 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/worldSaves/{worldId} {
+      allow get: if isSignedIn() &&
+        isVerified() &&
+        isValidId(userId) &&
+        isValidId(worldId) &&
+        request.auth.uid == userId &&
+        existing().ownerId == request.auth.uid;
+
+      allow list: if isSignedIn() &&
+        isVerified() &&
+        request.auth.uid == userId &&
+        resource.data.ownerId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+        isVerified() &&
+        isValidId(userId) &&
+        isValidId(worldId) &&
+        request.auth.uid == userId &&
+        isValidWorldSave(incoming(), userId, worldId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidWorldSave(incoming(), userId, worldId) &&
+        isSignedIn() &&
+        isVerified() &&
+        isValidId(userId) &&
+        isValidId(worldId) &&
+        request.auth.uid == userId &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().worldId == existing().worldId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'worldName',
+            'seed',
+            'playerX',
+            'playerY',
+            'health',
+            'food',
+            'stamina',
+            'day',
+            'time',
+            'inventoryCounts',
+            'slotOrder',
+            'activeSlot',
+            'modifiedBlocksMap',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if isSignedIn() &&
+        isVerified() &&
+        isValidId(userId) &&
+        isValidId(worldId) &&
+        request.auth.uid == userId &&
+        existing().ownerId == request.auth.uid;
+    }
+  }
+}

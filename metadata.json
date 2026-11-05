@@ -1,0 +1,6 @@
+{
+  "name": "2D Survival",
+  "description": "An original 2D browser-based pixel sandbox survival game featuring procedural terrain, caves, day-night cycle, and exploration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

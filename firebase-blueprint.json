@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "WorldSave": {
+      "title": "WorldSave",
+      "description": "Persistent cloud save storing a player's world builds, chests, interactive objects, and player inventory across game updates.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "The authenticated Firebase UID of the player who owns this save.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "worldId": {
+          "type": "string",
+          "description": "Unique identifier for the world or server lobby.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "worldName": {
+          "type": "string",
+          "description": "Display name or lobby code of the world.",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "seed": {
+          "type": "number",
+          "description": "Deterministic world generation seed."
+        },
+        "playerX": {
+          "type": "number",
+          "description": "Player X world coordinate."
+        },
+        "playerY": {
+          "type": "number",
+          "description": "Player Y world coordinate."
+        },
+        "health": {
+          "type": "number",
+          "description": "Player current health points (0 to 100)."
+        },
+        "food": {
+          "type": "number",
+          "description": "Player current food points (0 to 100)."
+        },
+        "stamina": {
+          "type": "number",
+          "description": "Player current stamina points (0 to 100)."
+        },
+        "day": {
+          "type": "number",
+          "description": "Current in-game day count."
+        },
+        "time": {
+          "type": "number",
+          "description": "Current normalized time of day (0 to 1)."
+        },
+        "inventoryCounts": {
+          "type": "map",
+          "description": "Map of item types to counts in the player's inventory."
+        },
+        "slotOrder": {
+          "type": "list",
+          "description": "Ordered list of item types in the player's inventory slots (up to 36 slots)."
+        },
+        "activeSlot": {
+          "type": "number",
+          "description": "Selected hotbar slot index (0 to 8)."
+        },
+        "modifiedBlocksMap": {
+          "type": "map",
+          "description": "Map of block coordinates ('x,y') to TileType numbers representing player builds and mined terrain."
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "Server timestamp when this save was first created."
+        },
+        "updatedAt": {
+          "type": "timestamp",
+          "description": "Server timestamp when this save was last updated."
+        }
+      },
+      "required": [
+        "ownerId",
+        "worldId",
+        "worldName",
+        "seed",
+        "playerX",
+        "playerY",
+        "health",
+        "food",
+        "stamina",
+        "day",
+        "time",
+        "inventoryCounts",
+        "slotOrder",
+        "activeSlot",
+        "modifiedBlocksMap",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/worldSaves/{worldId}": {
+      "schema": "WorldSave",
+      "description": "Stores per-user persistent world builds and player inventory snapshots."
+    }
+  }
+}
