@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://2d-survivals.vercel.app/sitemap.xml
