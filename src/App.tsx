@@ -954,7 +954,7 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
           throw new Error('Passwords do not match.');
         }
 
-        const response = await fetch('/api/v1/auth/register', {
+        const response = await fetch(apiUrl('/api/v1/auth/register'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -987,7 +987,7 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
           throw new Error('Please enter both your username/email and password.');
         }
 
-        const response = await fetch('/api/v1/auth/login', {
+        const response = await fetch(apiUrl('/api/v1/auth/login'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
