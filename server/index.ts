@@ -454,6 +454,72 @@ export function setupAuthRoutes(app: Application): void {
     }
   });
 
+  app.post('/api/v1/auth/firebase', async (req, res) => {
+    const apiKey = process.env.FIREBASE_AUTH_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({ ok: false, error: 'Firebase sign-in is not configured on the game server yet.' });
+      return;
+    }
+    const idToken = typeof req.body?.idToken === 'string' ? req.body.idToken : '';
+    if (!idToken || idToken.length > 12000) {
+      res.status(400).json({ ok: false, error: 'A valid Firebase sign-in token is required.' });
+      return;
+    }
+    try {
+      const verifyResponse = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      const verifyData = await verifyResponse.json() as {
+        users?: Array<{ localId?: string; email?: string; emailVerified?: boolean; displayName?: string; providerUserInfo?: Array<{ providerId?: string }> }>;
+        error?: { message?: string };
+      };
+      const firebaseUser = verifyData.users?.[0];
+      if (!verifyResponse.ok || !firebaseUser?.localId || !firebaseUser.email) {
+        res.status(401).json({ ok: false, error: 'Firebase could not verify this sign-in. Please try again.' });
+        return;
+      }
+      const email = sanitizeEmail(firebaseUser.email);
+      const provider = firebaseUser.providerUserInfo?.some((item) => item.providerId === 'google.com') ? 'google' : 'email';
+      let account = [...authAccounts.values()].find((item) => item.googleSub === firebaseUser.localId) || getAccountByEmail(email);
+      if (account) {
+        if (account.email !== email) {
+          res.status(409).json({ ok: false, error: 'This sign-in does not match the email on the existing game account.' });
+          return;
+        }
+        account.googleSub = firebaseUser.localId;
+        account.authProvider = provider;
+        if (firebaseUser.displayName && (!account.displayName || account.displayName.startsWith('Pixel'))) {
+          account.displayName = ensureUniqueDisplayName(firebaseUser.displayName, account.displayName, account.id);
+        }
+        account.lastLoginAt = Date.now();
+      } else {
+        const displayName = ensureUniqueDisplayName(firebaseUser.displayName || createRandomProfileName());
+        account = {
+          id: `acct-${randomBytes(12).toString('hex')}`,
+          email,
+          passwordHash: 'firebase-managed',
+          passwordSalt: randomBytes(16).toString('hex'),
+          displayName,
+          googleSub: firebaseUser.localId,
+          authProvider: provider,
+          createdAt: Date.now(),
+          lastLoginAt: Date.now(),
+          version: AUTH_ACCOUNT_VERSION,
+        };
+        authAccounts.set(account.id, account);
+      }
+      authAccounts.set(account.id, account);
+      saveAccount(account);
+      const token = createAuthSession(account);
+      res.json({ ok: true, token, user: { id: account.id, email: account.email, displayName: account.displayName, createdAt: account.createdAt } });
+    } catch (error) {
+      console.error('[auth] Firebase verification failed:', error);
+      res.status(502).json({ ok: false, error: 'Could not verify the Firebase sign-in right now.' });
+    }
+  });
+
   app.get(['/api/v1/auth/me', '/api/auth/me'], (req, res) => {
     const authHeader = req.get('authorization') || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : (req.query.token as string | undefined) || null;
