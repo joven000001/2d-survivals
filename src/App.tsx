@@ -32,6 +32,8 @@ import {
   Sparkles,
   Feather,
   LoaderCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { GameEngine, GameState } from './game/engine';
 import { GameStats, TileType } from './game/types';
@@ -264,6 +266,8 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
   const [authConfirmPassword, setAuthConfirmPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [showAuthConfirmPassword, setShowAuthConfirmPassword] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -4659,15 +4663,20 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
                     <label htmlFor="auth-password" className="mb-1 block text-[10px] font-mono uppercase tracking-[0.2em] text-slate-200">
                       Password
                     </label>
-                    <input
-                      id="auth-password"
-                      type="password"
-                      value={authPassword}
-                      onChange={(event) => setAuthPassword(event.target.value)}
-                      placeholder={authMode === 'signup' ? 'Minimum 6 characters' : 'Enter password'}
-                      autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-base text-white outline-none focus:border-emerald-400"
-                    />
+                    <div className="relative">
+                      <input
+                        id="auth-password"
+                        type={showAuthPassword ? 'text' : 'password'}
+                        value={authPassword}
+                        onChange={(event) => setAuthPassword(event.target.value)}
+                        placeholder={authMode === 'signup' ? 'Minimum 6 characters' : 'Enter password'}
+                        autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 pr-11 text-base text-white outline-none focus:border-emerald-400"
+                      />
+                      <button type="button" onClick={() => setShowAuthPassword((visible) => !visible)} aria-label={showAuthPassword ? 'Hide password' : 'Show password'} aria-pressed={showAuthPassword} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 hover:text-emerald-300">
+                        {showAuthPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                   </div>
 
                   {authMode === 'signup' && (
@@ -4675,15 +4684,20 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
                       <label htmlFor="auth-confirm" className="mb-1 block text-[10px] font-mono uppercase tracking-[0.2em] text-slate-200">
                         Confirm Password
                       </label>
-                      <input
-                        id="auth-confirm"
-                        type="password"
-                        value={authConfirmPassword}
-                        onChange={(event) => setAuthConfirmPassword(event.target.value)}
-                        placeholder="Re-enter password"
-                        autoComplete="new-password"
-                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-base text-white outline-none focus:border-emerald-400"
-                      />
+                      <div className="relative">
+                        <input
+                          id="auth-confirm"
+                          type={showAuthConfirmPassword ? 'text' : 'password'}
+                          value={authConfirmPassword}
+                          onChange={(event) => setAuthConfirmPassword(event.target.value)}
+                          placeholder="Re-enter password"
+                          autoComplete="new-password"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 pr-11 text-base text-white outline-none focus:border-emerald-400"
+                        />
+                        <button type="button" onClick={() => setShowAuthConfirmPassword((visible) => !visible)} aria-label={showAuthConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'} aria-pressed={showAuthConfirmPassword} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 hover:text-emerald-300">
+                          {showAuthConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
                     </div>
                   )}
 
