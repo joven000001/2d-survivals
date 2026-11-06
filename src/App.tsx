@@ -963,7 +963,7 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
     setAuthError('');
     try {
       const email = (authEmail || authUsername).trim().toLowerCase();
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         throw new Error('Enter a valid email address.');
       }
       if (authPassword.length < 6) {
