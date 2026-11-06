@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 
 const firebaseAuthConfig = {
-  apiKey: 'AIzaSyAqQBwUWJ1ifhaiNBnw8Y5-au8e37r90Uc',
+  apiKey: 'AIzaSyAqQBwUWJ1ifhaiNBnw8Y5-au8e37r9UOc',
   authDomain: 'scientific-responder-1q6d2.firebaseapp.com',
   projectId: 'scientific-responder-1q6d2',
   storageBucket: 'scientific-responder-1q6d2.firebasestorage.app',
