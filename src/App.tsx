@@ -67,6 +67,7 @@ import { ChestPanel } from './components/ChestPanel';
 import { SignEditor } from './components/SignEditor';
 import { getCropGrowthStage, InteractiveObjectState, InteractiveObjectType, makeWorldObject, objectTypeForTile, sanitizeSignText, sanitizeWorldObject, worldObjectId } from './game/worldObjects';
 import { auth, loadWorldFromCloud, saveWorldToCloud } from './firebase';
+import { signInWithSurvivalEmail, signInWithSurvivalGoogle } from './firebase-auth';
 import {
   shouldShowExternalLoginOptions,
   shouldShowExternalLoginWarning,
@@ -920,99 +921,64 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
     setRenameDraft(playerName);
   }, [playerName]);
 
-  const handleGoogleSignIn = () => {
-    if (!googleAuthStatus.enabled) {
-      setAuthError('Google sign-in is not configured yet. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI in your server environment.');
-      setAuthDialogOpen(true);
-      return;
+  const finishFirebaseSignIn = async (firebaseUser: import('firebase/auth').User) => {
+    const idToken = await firebaseUser.getIdToken();
+    const response = await fetch(apiUrl('/api/v1/auth/firebase'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    });
+    const data = (await response.json()) as { ok?: boolean; token?: string; error?: string; user?: any };
+    if (!response.ok || !data.ok || !data.token) {
+      throw new Error(data.error || 'Could not connect this sign-in to your game account.');
     }
-    const redirectTarget = `${window.location.origin}${window.location.pathname}`;
-    window.location.assign(`/api/auth/google/start?redirect=${encodeURIComponent(redirectTarget)}`);
+    window.localStorage.setItem('pixel_frontier_auth_token', data.token);
+    setAccountUser(data.user ?? null);
+    if (data.user?.displayName) setGuestName(data.user.displayName);
+    setAuthDialogOpen(false);
+    setAuthUsername('');
+    setAuthEmail('');
+    setAuthPassword('');
+    setAuthConfirmPassword('');
+    setProfileDialogOpen(true);
+    void loadAccountCloudProgress();
+  };
+
+  const handleGoogleSignIn = async () => {
+    setAuthBusy(true);
+    setAuthError('');
+    try {
+      const user = await signInWithSurvivalGoogle();
+      await finishFirebaseSignIn(user);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Google sign-in failed.');
+    } finally {
+      setAuthBusy(false);
+    }
   };
 
   const handleAuthSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setAuthBusy(true);
     setAuthError('');
-
     try {
-      if (authMode === 'signup') {
-        const username = authUsername.trim();
-        const password = authPassword;
-        const confirm = authConfirmPassword;
-
-        if (!username || !password) {
-          throw new Error('Please enter both a username and password.');
-        }
-        if (username.length < 3) {
-          throw new Error('Username must be at least 3 characters.');
-        }
-        if (password.length < 6) {
-          throw new Error('Password must be at least 6 characters.');
-        }
-        if (password !== confirm) {
-          throw new Error('Passwords do not match.');
-        }
-
-        const response = await fetch(apiUrl('/api/v1/auth/register'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username,
-            password,
-            displayName: username,
-            email: authEmail.trim() || undefined,
-          }),
-        });
-        const data = (await response.json()) as { ok?: boolean; token?: string; error?: string; user?: any };
-        if (!response.ok || !data.ok || !data.token) {
-          throw new Error(data.error || 'Unable to create account.');
-        }
-
-        window.localStorage.setItem('pixel_frontier_auth_token', data.token);
-        setAccountUser(data.user ?? null);
-        if (data.user?.displayName) setGuestName(data.user.displayName);
-        setAuthDialogOpen(false);
-        setAuthUsername('');
-        setAuthEmail('');
-        setAuthPassword('');
-        setAuthConfirmPassword('');
-        setProfileDialogOpen(true);
-        void loadAccountCloudProgress();
-      } else {
-        const identifier = (authUsername || authEmail).trim();
-        const password = authPassword;
-
-        if (!identifier || !password) {
-          throw new Error('Please enter both your username/email and password.');
-        }
-
-        const response = await fetch(apiUrl('/api/v1/auth/login'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            identifier,
-            password,
-          }),
-        });
-        const data = (await response.json()) as { ok?: boolean; token?: string; error?: string; user?: any };
-        if (!response.ok || !data.ok || !data.token) {
-          throw new Error(data.error || 'Invalid username or password.');
-        }
-
-        window.localStorage.setItem('pixel_frontier_auth_token', data.token);
-        setAccountUser(data.user ?? null);
-        if (data.user?.displayName) setGuestName(data.user.displayName);
-        setAuthDialogOpen(false);
-        setAuthUsername('');
-        setAuthEmail('');
-        setAuthPassword('');
-        setAuthConfirmPassword('');
-        setProfileDialogOpen(true);
-        void loadAccountCloudProgress();
+      const email = (authEmail || authUsername).trim().toLowerCase();
+      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+        throw new Error('Enter a valid email address.');
       }
+      if (authPassword.length < 6) {
+        throw new Error('Password must be at least 6 characters.');
+      }
+      const user = await signInWithSurvivalEmail(email, authPassword);
+      await finishFirebaseSignIn(user);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Authentication failed.');
+      const code = (error as { code?: string })?.code;
+      const message = code === 'auth/email-already-in-use'
+        ? 'This email already has an account. Check your password and try again.'
+        : code === 'auth/invalid-credential' || code === 'auth/wrong-password'
+          ? 'Email or password is incorrect.'
+          : error instanceof Error ? error.message : 'Email sign-in failed.';
+      setAuthError(message);
     } finally {
       setAuthBusy(false);
     }
@@ -4617,44 +4583,20 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
                   </button>
                 </div>
 
-                {/* Tabs */}
-                <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-900/80 p-1 border border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => { setAuthMode('login'); setAuthError(''); }}
-                    className={`py-2 rounded-lg font-pixel text-[10px] uppercase tracking-wider transition-all ${
-                      authMode === 'login'
-                        ? 'bg-slate-700 text-amber-200 shadow-md border border-amber-300/40'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Log In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setAuthMode('signup'); setAuthError(''); }}
-                    className={`py-2 rounded-lg font-pixel text-[10px] uppercase tracking-wider transition-all ${
-                      authMode === 'signup'
-                        ? 'bg-slate-700 text-amber-200 shadow-md border border-amber-300/40'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Create Account
-                  </button>
-                </div>
+                <p className="mb-4 text-xs font-mono text-slate-400">Sign in with your email. New accounts are created automatically.</p>
 
                 <form onSubmit={handleAuthSubmit} className="space-y-3.5">
                   <div>
                     <label htmlFor="auth-username" className="mb-1 block text-[10px] font-mono uppercase tracking-[0.2em] text-slate-200">
-                      {authMode === 'signup' ? 'Username (3-20 chars)' : 'Username or Email'}
+                      Email address
                     </label>
                     <input
                       id="auth-username"
-                      type="text"
-                      value={authUsername}
-                      onChange={(event) => setAuthUsername(event.target.value)}
-                      placeholder={authMode === 'signup' ? 'e.g. StarPioneer_42' : 'Enter username or email'}
-                      autoComplete="username"
+                      type="email"
+                      value={authEmail || authUsername}
+                      onChange={(event) => { setAuthEmail(event.target.value); setAuthUsername(''); }}
+                      placeholder="Enter your email address"
+                      autoComplete="email"
                       className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-base text-white outline-none focus:border-emerald-400"
                     />
                   </div>
@@ -4679,28 +4621,6 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
                     </div>
                   </div>
 
-                  {authMode === 'signup' && (
-                    <div>
-                      <label htmlFor="auth-confirm" className="mb-1 block text-[10px] font-mono uppercase tracking-[0.2em] text-slate-200">
-                        Confirm Password
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="auth-confirm"
-                          type={showAuthConfirmPassword ? 'text' : 'password'}
-                          value={authConfirmPassword}
-                          onChange={(event) => setAuthConfirmPassword(event.target.value)}
-                          placeholder="Re-enter password"
-                          autoComplete="new-password"
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 pr-11 text-base text-white outline-none focus:border-emerald-400"
-                        />
-                        <button type="button" onClick={() => setShowAuthConfirmPassword((visible) => !visible)} aria-label={showAuthConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'} aria-pressed={showAuthConfirmPassword} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 hover:text-emerald-300">
-                          {showAuthConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   {authError && (
                     <p role="alert" className="rounded-lg bg-red-950/60 border border-red-500/40 p-2.5 text-xs text-red-300 font-mono">
                       {authError}
@@ -4712,7 +4632,7 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
                     disabled={authBusy}
                     className="w-full rounded-xl border border-[#a9efb1] bg-gradient-to-b from-[#8ee58e] to-[#3bbd84] py-3.5 font-pixel text-xs uppercase tracking-[0.2em] text-[#102824] shadow-md hover:brightness-105 active:scale-98 disabled:opacity-70 transition-all cursor-pointer font-bold"
                   >
-                    {authBusy ? 'Please wait…' : authMode === 'login' ? '⚔️ Log In' : '✨ Create Account'}
+                    {authBusy ? 'Please wait…' : '⚔️ Continue with Email'}
                   </button>
 
                   <div className="flex items-center gap-3 pt-1" aria-hidden="true">
@@ -4723,7 +4643,7 @@ function saveMenuMusicSettings(volume: number, muted: boolean) {
 
                   <button
                     type="button"
-                    onClick={handleGoogleSignIn}
+                    onClick={() => { void handleGoogleSignIn(); }}
                     disabled={authBusy}
                     className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-700 bg-slate-900/90 px-4 py-2.5 font-sans text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-70 transition-colors"
                   >
